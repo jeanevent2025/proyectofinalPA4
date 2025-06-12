@@ -1,0 +1,96 @@
+/* Global CSS Variables from the original theme */
+:root {
+  /* Color Palette */
+  --global-palette1: #fd5662;
+  --global-palette2: #2fb991;
+  --global-palette3: #222222;
+  --global-palette4: #666666;
+  --global-palette5: #777777;
+  --global-palette6: #888888;
+  --global-palette7: #f0f0f0;
+  --global-palette8: #f7f7f7;
+  --global-palette9: #ffffff;
+
+  /* Typography */
+  --global-body-font-family: Inter, sans-serif;
+  --global-heading-font-family: inherit;
+  --global-fallback-font: sans-serif;
+
+  /* Font Sizes */
+  --global-font-size-small: clamp(0.8rem, calc(0.73rem + 0.217vw), 0.9rem);
+  --global-font-size-medium: clamp(1.1rem, calc(0.995rem + 0.326vw), 1.25rem);
+  --global-font-size-large: clamp(1.75rem, calc(1.576rem + 0.543vw), 2rem);
+  --global-font-size-larger: clamp(2rem, calc(1.6rem + 1vw), 2.5rem);
+  --global-font-size-xxlarge: clamp(2.25rem, calc(1.728rem + 1.63vw), 3rem);
+
+  /* Spacing */
+  --global-xs-spacing: 1em;
+  --global-sm-spacing: 1.5rem;
+  --global-md-spacing: 2rem;
+  --global-lg-spacing: 2.5em;
+  --global-xl-spacing: 3.5em;
+  --global-xxl-spacing: 5rem;
+  --global-edge-spacing: 1.5rem;
+  --global-boxed-spacing: 2rem;
+
+  /* Content Width */
+  --global-content-width: 1230px;
+  --global-content-narrow-width: 842px;
+  --global-content-edge-padding: 0.9375rem;
+  --global-content-boxed-padding: 2rem;
+
+  /* Button Styles */
+  --global-button-height: 42px;
+  --global-button-max-height: 42px;
+  --global-palette-btn-bg: var(--global-palette1);
+  --global-palette-btn-bg-hover: var(--global-palette2);
+  --global-palette-btn: var(--global-palette9);
+  --global-palette-btn-hover: var(--global-palette9);
+}
+
+/* Base Typography */
+body {
+  font-family: var(--global-body-font-family);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0.1px;
+  color: var(--global-palette4);
+}
+
+/* Utility Classes */
+.text-primary {
+  color: var(--global-palette1);
+}
+
+.text-secondary {
+  color: var(--global-palette2);
+}
+
+.text-dark {
+  color: var(--global-palette3);
+}
+
+.text-gray {
+  color: var(--global-palette4);
+}
+
+.bg-primary {
+  background-color: var(--global-palette1);
+}
+
+.bg-secondary {
+  background-color: var(--global-palette2);
+}
+
+.bg-light {
+  background-color: var(--global-palette7);
+}
+
+.bg-lighter {
+  background-color: var(--global-palette8);
+}
+
+.bg-white {
+  background-color: var(--global-palette9);
+}

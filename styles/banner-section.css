@@ -1,0 +1,118 @@
+/* Banner Section Styles */
+.banner-section {
+  padding: 40px 0;
+  background-color: #f8f9fa;
+}
+
+.banner-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px; /* Increased gap for more separation */
+}
+
+.banner-column {
+  position: relative;
+  overflow: hidden;
+  background-color: #ffffff; /* Add white background to each banner */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Keep subtle shadow */
+}
+
+.banner-image-link {
+  display: block;
+  position: relative;
+}
+
+.banner-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.banner-image-link:hover .banner-image {
+  transform: scale(1.05);
+}
+
+/* Absolutely positioned elements */
+.banner-trending {
+  position: absolute;
+  top: 20px;
+  left: 30px;
+  font-size: 14px;
+  font-weight: normal;
+  color: #666666;
+  margin: 0;
+  z-index: 2;
+}
+
+.banner-heading {
+  position: absolute;
+  top: 45px;
+  left: 30px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #333333;
+  line-height: 1.2;
+  margin: 0;
+  z-index: 2;
+}
+
+.banner-button {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  background-color: #ff5a5f;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.banner-button:hover {
+  background-color: #e74c3c;
+  transform: scale(1.05);
+  color: white;
+  text-decoration: none;
+}
+
+/* Hide trending text on mobile and tablet */
+@media (max-width: 768px) {
+  .banner-trending {
+    display: none;
+  }
+
+  .banner-container {
+    grid-template-columns: 1fr;
+    gap: 30px; /* Maintain increased gap on mobile */
+  }
+
+  .banner-heading {
+    top: 20px;
+    left: 20px;
+    font-size: 20px;
+  }
+
+  .banner-button {
+    bottom: 20px;
+    left: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .banner-heading {
+    font-size: 18px;
+  }
+
+  .banner-button {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+}
