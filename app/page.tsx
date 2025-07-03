@@ -250,29 +250,25 @@ export default function HomePage() {
             {/* Navigation Links */}
             <div className="flex items-center space-x-8 flex-1">
               <Link href="/" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                HOME
+                INICIO
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
               </Link>
               <Link href="/tienda" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                SHOP
+                TIENDA
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
               </Link>
-              <Link href="/categories" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                CATEGORIES
+              <Link href="/marcas" className="text-white hover:text-yellow-400 font-medium flex items-center">
+                MARCAS
                 <Badge className="ml-2 bg-emerald-500 text-white text-xs">SALE</Badge>
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
               </Link>
               <Link href="/productos" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                PRODUCTS
+                PRODUCTOS
                 <Badge className="ml-2 bg-red-500 text-white text-xs">HOT</Badge>
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
               </Link>
-              <Link href="/deals" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                TOP DEALS
-                <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
-              </Link>
-              <Link href="/elements" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                ELEMENTS
+              <Link href="/pedidos" className="text-white hover:text-yellow-400 font-medium flex items-center">
+                PEDIDOS
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
               </Link>
             </div>

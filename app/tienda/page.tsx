@@ -414,29 +414,25 @@ export default function TiendaPage() {
             {/* Navigation Links */}
             <div className="flex items-center space-x-8 flex-1">
               <Link href="/" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                HOME
+                INICIO
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
               <Link href="/tienda" className="text-yellow-400 hover:text-yellow-400 font-medium flex items-center">
-                SHOP
+                TIENDA
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
-              <Link href="/categories" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                CATEGORIES
+              <Link href="/marcas" className="text-white hover:text-yellow-400 font-medium flex items-center">
+                MARCAS
                 <Badge className="ml-2 bg-emerald-500 text-white text-xs">SALE</Badge>
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
               <Link href="/productos" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                PRODUCTS
+                PRODUCTOS
                 <Badge className="ml-2 bg-red-500 text-white text-xs">HOT</Badge>
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
-              <Link href="/deals" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                TOP DEALS
-                <ChevronDown className="h-4 w-4 ml-1" />
-              </Link>
-              <Link href="/elements" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                ELEMENTS
+              <Link href="/pedidos" className="text-white hover:text-yellow-400 font-medium flex items-center">
+                PEDIDOS
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
             </div>
