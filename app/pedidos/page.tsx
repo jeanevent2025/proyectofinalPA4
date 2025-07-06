@@ -12,7 +12,7 @@ import { ChevronDown, Menu, User, Phone, ShoppingCart } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // URL de tu servicio web
-const API_URL = "http://localhost/celulares-api/api/pedidos.php"
+const API_URL = "https://giancarlo.alwaysdata.net/pedidos.php"
 
 interface Pedido {
   id: number

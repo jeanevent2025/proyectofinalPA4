@@ -67,7 +67,7 @@ interface FormData {
     descripcion: string
 }
 
-const API_URL = "http://localhost/celulares-api/api/marcas.php"
+const API_URL = "https://giancarlo.alwaysdata.net/marcas.php"
 
 export default function MarcasPage() {
     const [marcas, setMarcas] = useState<Marca[]>([])
