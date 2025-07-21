@@ -1,21 +1,30 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight, Package, Clock, Truck, CheckCircle, XCircle, RefreshCw } from "lucide-react"
+import { Package, Clock, Truck, CheckCircle, XCircle, RefreshCw, ChevronDown, ChevronRight, MapPin } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
-import { ChevronDown, Menu, User, Phone, ShoppingCart } from "lucide-react"
+import { Menu, User, Phone, ShoppingCart } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import axios from "axios"
 
-// URL de tu servicio web
+// Si estás probando en v0 o desplegando, CAMBIA esta URL a la URL pública de tu API PHP.
 const API_URL = "https://giancarlo.alwaysdata.net/pedidos.php"
 
+interface DetallePedido {
+  idproducto: number
+  producto: string
+  precio: number
+  cantidad: number
+}
+
 interface Pedido {
-  id: number
+  idpedido: number
   numero_pedido: string
   cliente_nombre: string
   cliente_email: string
@@ -23,31 +32,13 @@ interface Pedido {
   cliente_ciudad: string
   fecha_pedido: string
   estado: "pendiente" | "procesando" | "enviado" | "entregado" | "cancelado"
-  subtotal: number
-  impuestos: number
-  total: number
   metodo_pago: string
-  direccion_envio: string
-  notas: string
-  fecha_entrega_estimada: string
-  record_number?: number
-}
-
-interface PaginationInfo {
-  current_page: number
-  per_page: number
-  total_records: number
-  total_pages: number
-  has_next: boolean
-  has_prev: boolean
-  next_page: number | null
-  prev_page: number | null
+  detalle: DetallePedido[]
 }
 
 interface ApiResponse {
-  success: boolean
-  data: Pedido[]
-  pagination: PaginationInfo
+  total: number
+  pedidos: Pedido[]
   message?: string
   debug_info?: any
 }
@@ -76,55 +67,97 @@ const metodoPagoLabels = {
   efectivo: "Efectivo",
 }
 
+// Componentes de loading
+const TableLoadingSpinner = () => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
+    <h3 className="text-lg font-semibold text-gray-700 mb-2">Cargando Pedidos</h3>
+    <p className="text-gray-500">Obteniendo datos del servidor...</p>
+  </div>
+)
+
+const LoadingMoreSpinner = () => (
+  <div className="flex items-center justify-center py-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+    <span className="text-gray-600">Cargando más pedidos...</span>
+  </div>
+)
+
 export default function PedidosPage() {
-  const [pedidos, setPedidos] = useState<Pedido[]>([])
-  const [pagination, setPagination] = useState<PaginationInfo | null>(null)
+  // Estados principales
+  const [allPedidos, setAllPedidos] = useState<Pedido[]>([]) // Todos los pedidos cargados
+  const [displayedPedidos, setDisplayedPedidos] = useState<Pedido[]>([]) // Pedidos mostrados
+  const [totalRecords, setTotalRecords] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
   const [sortBy, setSortBy] = useState("fecha_pedido")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [connectionError, setConnectionError] = useState(false)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
 
-  const fetchPedidos = async (page = 1) => {
+  // Estados para lazy loading
+  const [itemsPerPage] = useState(20)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+
+  // Estados para Maestro-Detalles
+  const [expandedPedido, setExpandedPedido] = useState<number | null>(null)
+  const [currentDetalles, setCurrentDetalles] = useState<DetallePedido[]>([])
+  const [currentTotalGeneral, setCurrentTotalGeneral] = useState(0)
+
+  // Ref para el observer
+  const observer = useRef<IntersectionObserver | null>(null)
+  const lastPedidoElementRef = useCallback(
+    (node: HTMLTableRowElement) => {
+      if (loading || loadingMore) return
+      if (observer.current) observer.current.disconnect()
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMorePedidos()
+        }
+      })
+      if (node) observer.current.observe(node)
+    },
+    [loading, loadingMore, hasMore],
+  )
+
+  // Función para cargar todos los pedidos desde la API
+  const fetchAllPedidos = async () => {
     setLoading(true)
     setError(null)
     setConnectionError(false)
 
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: rowsPerPage.toString(),
+      const params = {
         sort_by: sortBy,
-        sort_order: sortOrder,
-      })
+        sort_order: sortOrder.toUpperCase(),
+      }
 
-      console.log(`Solicitando página ${page} con URL: ${API_URL}?${params}`)
-
-      const response = await fetch(`${API_URL}?${params}`, {
-        method: "GET",
+      console.log(`Solicitando datos con URL: ${API_URL}`)
+      const response = await axios.get(API_URL, {
+        params,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        mode: "cors",
       })
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`)
-      }
-
-      const data: ApiResponse = await response.json()
+      const data: ApiResponse = response.data
       console.log("Respuesta de la API:", data)
 
-      if (data.success) {
-        setPedidos(data.data)
-        setPagination(data.pagination)
-        setCurrentPage(page)
-        console.log(`Página ${page} cargada: ${data.data.length} registros`)
+      if (data && Array.isArray(data.pedidos)) {
+        setAllPedidos(data.pedidos)
+        setTotalRecords(data.total)
+
+        // Mostrar los primeros 20 pedidos
+        const firstPage = data.pedidos.slice(0, itemsPerPage)
+        setDisplayedPedidos(firstPage)
+        setCurrentPage(1)
+        setHasMore(data.pedidos.length > itemsPerPage)
+
+        console.log(`Datos cargados: ${data.pedidos.length} pedidos totales, mostrando ${firstPage.length}`)
       } else {
-        throw new Error(data.message || "Error desconocido al cargar los pedidos")
+        throw new Error(data.message || "Error desconocido o formato de respuesta inesperado al cargar los pedidos")
       }
     } catch (err) {
       console.error("Error detallado al cargar pedidos:", err)
@@ -132,23 +165,74 @@ export default function PedidosPage() {
 
       let errorMessage = "Error al cargar los pedidos"
 
-      if (err instanceof TypeError && err.message.includes("fetch")) {
-        errorMessage = `No se pudo conectar con el servicio web en: ${API_URL}`
+      if (axios.isAxiosError(err)) {
+        if (err.code === "ECONNABORTED" || err.message?.includes("Network Error")) {
+          errorMessage = `No se pudo conectar con el servicio web en: ${API_URL}. Asegúrate de que el servidor PHP esté corriendo y la URL sea correcta.`
+        } else if (err.response) {
+          errorMessage = `Error HTTP: ${err.response.status} - ${err.response.statusText}. Respuesta: ${JSON.stringify(err.response.data)}`
+        } else {
+          errorMessage = `Error: ${err.message}`
+        }
       } else if (err instanceof Error) {
         errorMessage = `Error: ${err.message}`
       }
 
       setError(errorMessage)
-      setPedidos([])
-      setPagination(null)
+      setAllPedidos([])
+      setDisplayedPedidos([])
+      setTotalRecords(null)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchPedidos(1)
-  }, [sortBy, sortOrder, rowsPerPage])
+  // Función para cargar más pedidos (lazy loading)
+  const loadMorePedidos = () => {
+    if (loadingMore || !hasMore) return
+
+    setLoadingMore(true)
+
+    // Simular un pequeño delay para mostrar el loading
+    setTimeout(() => {
+      const nextPage = currentPage + 1
+      const startIndex = (nextPage - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+
+      const nextItems = allPedidos.slice(startIndex, endIndex)
+
+      if (nextItems.length > 0) {
+        setDisplayedPedidos((prev) => [...prev, ...nextItems])
+        setCurrentPage(nextPage)
+
+        // Verificar si hay más elementos
+        setHasMore(endIndex < allPedidos.length)
+      } else {
+        setHasMore(false)
+      }
+
+      setLoadingMore(false)
+    }, 500) // Delay de 500ms para simular carga
+  }
+
+  // Manejar click en fila para expandir/contraer
+  const handleRowClick = (pedidoId: number) => {
+    if (expandedPedido === pedidoId) {
+      setExpandedPedido(null)
+      setCurrentDetalles([])
+      setCurrentTotalGeneral(0)
+    } else {
+      const selectedPedido = displayedPedidos.find((p) => p.idpedido === pedidoId)
+      if (selectedPedido) {
+        setCurrentDetalles(selectedPedido.detalle)
+        const calculatedTotal = selectedPedido.detalle.reduce(
+          (sum, item) => sum + Number.parseFloat(item.precio.toString()) * item.cantidad,
+          0,
+        )
+        setCurrentTotalGeneral(calculatedTotal)
+        setExpandedPedido(pedidoId)
+      }
+    }
+  }
 
   const handleSort = (column: string) => {
     if (sortBy === column) {
@@ -159,23 +243,12 @@ export default function PedidosPage() {
     }
   }
 
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && pagination && page <= pagination.total_pages) {
-      console.log(`Cambiando a página ${page}`)
-      fetchPedidos(page)
-    }
-  }
-
   const handleRetry = () => {
-    fetchPedidos(currentPage)
+    fetchAllPedidos()
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-    }).format(amount)
+    return `S/ ${Math.round(amount)}`
   }
 
   const formatDate = (dateString: string) => {
@@ -186,22 +259,9 @@ export default function PedidosPage() {
     })
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Header simplificado para loading */}
-        <div className="container mx-auto p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-gray-600">Cargando pedidos...</p>
-              <p className="text-sm text-gray-500 mt-2">Página {currentPage}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    fetchAllPedidos()
+  }, [sortBy, sortOrder])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -301,11 +361,6 @@ export default function PedidosPage() {
                 <Badge className="ml-2 bg-emerald-500 text-white text-xs">SALE</Badge>
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
-              <Link href="/productos" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                PRODUCTOS
-                <Badge className="ml-2 bg-red-500 text-white text-xs">HOT</Badge>
-                <ChevronDown className="h-4 w-4 ml-1" />
-              </Link>
               <Link href="/pedidos" className="text-yellow-400 hover:text-yellow-400 font-medium flex items-center">
                 PEDIDOS
                 <ChevronDown className="h-4 w-4 ml-1" />
@@ -333,7 +388,9 @@ export default function PedidosPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Gestión de Pedidos</h1>
-            <p className="text-muted-foreground">Administra y supervisa todos los pedidos de la tienda</p>
+            <p className="text-muted-foreground">
+              Haz clic en el pedido para ver los detalles
+            </p>
           </div>
           {error && (
             <Button onClick={handleRetry} variant="outline" className="flex items-center gap-2 bg-transparent">
@@ -341,29 +398,6 @@ export default function PedidosPage() {
               Reintentar Conexión
             </Button>
           )}
-          <div className="flex items-center gap-3">
-            <label htmlFor="rows-select" className="text-base font-medium text-gray-700">
-              Número de filas:
-            </label>
-            <select
-              id="rows-select"
-              value={rowsPerPage}
-              onChange={(e) => setRowsPerPage(Number(e.target.value))}
-              className="px-4 py-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[80px]"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={15}>15</option>
-              <option value={20}>20</option>
-              <option value={25}>25</option>
-              <option value={30}>30</option>
-              <option value={35}>35</option>
-              <option value={40}>40</option>
-              <option value={45}>45</option>
-              <option value={50}>50</option>
-              <option value={55}>55</option>
-            </select>
-          </div>
         </div>
 
         {/* Error Alert */}
@@ -385,23 +419,26 @@ export default function PedidosPage() {
           </Alert>
         )}
 
-        {/* Tabla de Pedidos */}
+        {/* Tabla de Pedidos con Lazy Loading */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-xl">Lista de Pedidos</CardTitle>
             <CardDescription className="text-right">
-              {pagination
-                ? `Mostrando ${pedidos.length} de ${pagination.total_records} pedidos (Página ${pagination.current_page} de ${pagination.total_pages})`
+              {totalRecords !== null
+                ? `Mostrando ${displayedPedidos.length} de ${totalRecords} pedidos`
                 : "Conectando con el servicio web de pedidos..."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {pedidos.length > 0 ? (
+            {loading ? (
+              <TableLoadingSpinner />
+            ) : displayedPedidos.length > 0 ? (
               <>
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="text-center w-12"></TableHead>
                         <TableHead className="text-center">#</TableHead>
                         <TableHead
                           className="cursor-pointer hover:bg-muted/50 text-center"
@@ -427,101 +464,144 @@ export default function PedidosPage() {
                           Estado
                           {sortBy === "estado" && <span className="ml-1">{sortOrder === "asc" ? "↑" : "↓"}</span>}
                         </TableHead>
-                        <TableHead
-                          className="cursor-pointer hover:bg-muted/50 text-center"
-                          onClick={() => handleSort("total")}
-                        >
-                          Total
-                          {sortBy === "total" && <span className="ml-1">{sortOrder === "asc" ? "↑" : "↓"}</span>}
+                        <TableHead className="text-center">
+                          <MapPin className="h-4 w-4 inline mr-1" />
+                          Ciudad
                         </TableHead>
                         <TableHead className="text-center">Método de Pago</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pedidos.map((pedido, index) => {
+                      {displayedPedidos.map((pedido, index) => {
                         const EstadoIcon = estadoIcons[pedido.estado]
+                        const isExpanded = expandedPedido === pedido.idpedido
+                        const isLast = index === displayedPedidos.length - 1
+
                         return (
-                          <TableRow key={pedido.id} className="hover:bg-muted/50">
-                            <TableCell className="text-center font-mono text-sm">
-                              {pedido.record_number || (currentPage - 1) * 20 + index + 1}
-                            </TableCell>
-                            <TableCell className="font-medium text-center">{pedido.numero_pedido}</TableCell>
-                            <TableCell className="text-center">
-                              <div>
-                                <div className="font-medium">{pedido.cliente_nombre}</div>
-                                <div className="text-sm text-muted-foreground">{pedido.cliente_email}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">{formatDate(pedido.fecha_pedido)}</TableCell>
-                            <TableCell className="text-center">
-                              <Badge
-                                variant="outline"
-                                className={`${estadoColors[pedido.estado]} flex items-center gap-1 w-fit mx-auto`}
-                              >
-                                <EstadoIcon className="h-3 w-3" />
-                                {pedido.estado.charAt(0).toUpperCase() + pedido.estado.slice(1)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-center font-medium">{formatCurrency(pedido.total)}</TableCell>
-                            <TableCell className="text-center">
-                              {metodoPagoLabels[pedido.metodo_pago as keyof typeof metodoPagoLabels] ||
-                                pedido.metodo_pago}
-                            </TableCell>
-                          </TableRow>
+                          <React.Fragment key={pedido.idpedido}>
+                            {/* FILA PRINCIPAL DEL PEDIDO */}
+                            <TableRow
+                              ref={isLast ? lastPedidoElementRef : null}
+                              className="hover:bg-muted/50 cursor-pointer transition-colors"
+                              onClick={() => handleRowClick(pedido.idpedido)}
+                            >
+                              <TableCell className="text-center">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-blue-600" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center font-mono text-sm">{index + 1}</TableCell>
+                              <TableCell className="font-medium text-center">{pedido.numero_pedido}</TableCell>
+                              <TableCell className="text-center">
+                                <div>
+                                  <div className="font-medium">{pedido.cliente_nombre}</div>
+                                  <div className="text-sm text-muted-foreground">{pedido.cliente_email}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">{formatDate(pedido.fecha_pedido)}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge
+                                  variant="outline"
+                                  className={`${estadoColors[pedido.estado]} flex items-center gap-1 w-fit mx-auto`}
+                                >
+                                  <EstadoIcon className="h-3 w-3" />
+                                  {pedido.estado.charAt(0).toUpperCase() + pedido.estado.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center font-medium">
+                                <div className="flex items-center justify-center gap-1">
+                                  <MapPin className="h-3 w-3 text-gray-500" />
+                                  {pedido.cliente_ciudad}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {metodoPagoLabels[pedido.metodo_pago as keyof typeof metodoPagoLabels] ||
+                                  pedido.metodo_pago}
+                              </TableCell>
+                            </TableRow>
+
+                            {/* FILA EXPANDIDA CON DETALLES */}
+                            {isExpanded && (
+                              <TableRow>
+                                <TableCell colSpan={8} className="p-0">
+                                  <div className="bg-gray-50 border-t border-gray-200">
+                                    <div className="p-4">
+                                      <h4 className="font-semibold text-lg mb-3 text-blue-700">
+                                        📦 Detalles del Pedido #{pedido.numero_pedido}
+                                      </h4>
+                                      {currentDetalles.length > 0 ? (
+                                        <div className="bg-white rounded-lg border">
+                                          <Table>
+                                            <TableHeader>
+                                              <TableRow className="bg-blue-50">
+                                                <TableHead className="text-center font-semibold">Código</TableHead>
+                                                <TableHead className="text-center font-semibold">Producto</TableHead>
+                                                <TableHead className="text-center font-semibold">Precio</TableHead>
+                                                <TableHead className="text-center font-semibold">Cantidad</TableHead>
+                                                <TableHead className="text-center font-semibold">Subtotal</TableHead>
+                                              </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {currentDetalles.map((detalle) => (
+                                                <TableRow key={detalle.idproducto} className="hover:bg-gray-50">
+                                                  <TableCell className="text-center font-mono">
+                                                    {detalle.idproducto}
+                                                  </TableCell>
+                                                  <TableCell className="text-center font-medium">
+                                                    {detalle.producto}
+                                                  </TableCell>
+                                                  <TableCell className="text-center">
+                                                    {formatCurrency(detalle.precio)}
+                                                  </TableCell>
+                                                  <TableCell className="text-center font-semibold">
+                                                    {detalle.cantidad}
+                                                  </TableCell>
+                                                  <TableCell className="text-center">
+                                                    {formatCurrency(detalle.precio * detalle.cantidad)}
+                                                  </TableCell>
+                                                </TableRow>
+                                              ))}
+                                              {/* FILA DE TOTAL */}
+                                              <TableRow className="bg-green-50 border-t-2 border-green-200">
+                                                <TableCell colSpan={4} className="text-right font-bold text-lg">
+                                                  TOTAL GENERAL:
+                                                </TableCell>
+                                                <TableCell className="text-center font-bold text-lg text-green-700">
+                                                  {formatCurrency(currentTotalGeneral)}
+                                                </TableCell>
+                                              </TableRow>
+                                            </TableBody>
+                                          </Table>
+                                        </div>
+                                      ) : (
+                                        <div className="text-center py-4 text-gray-500">
+                                          No se encontraron productos para este pedido
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
                         )
                       })}
                     </TableBody>
                   </Table>
                 </div>
 
-                {/* Paginación */}
-                {pagination && pagination.total_pages > 1 && (
-                  <div className="flex items-center justify-between space-x-2 py-4">
-                    <div className="text-sm text-muted-foreground">
-                      Página {pagination.current_page} de {pagination.total_pages} ({pagination.total_records} pedidos
-                      en total)
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(pagination.current_page - 1)}
-                        disabled={!pagination.has_prev}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Anterior
-                      </Button>
+                {/* Loading más pedidos */}
+                {loadingMore && <LoadingMoreSpinner />}
 
-                      {/* Números de página */}
-                      <div className="flex items-center space-x-1">
-                        {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-                          const pageNum = Math.max(1, pagination.current_page - 2) + i
-                          if (pageNum > pagination.total_pages) return null
-
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={pageNum === pagination.current_page ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => handlePageChange(pageNum)}
-                              className="w-8 h-8 p-0"
-                            >
-                              {pageNum}
-                            </Button>
-                          )
-                        })}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(pagination.current_page + 1)}
-                        disabled={!pagination.has_next}
-                      >
-                        Siguiente
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                {/* Mensaje cuando no hay más pedidos */}
+                {!hasMore && displayedPedidos.length > 0 && (
+                  <div className="text-center py-4 text-gray-500 border-t">
+                    <p className="font-medium">✅ Todos los pedidos han sido cargados</p>
+                    <p className="text-sm">
+                      Total: {displayedPedidos.length} de {totalRecords} pedidos
+                    </p>
                   </div>
                 )}
               </>

@@ -12,8 +12,6 @@ import {
   Search,
   User,
   Phone,
-  MapPin,
-  Mail,
   ChevronDown,
   Grid,
   List,
@@ -21,11 +19,14 @@ import {
   Eye,
   Heart,
   Minus,
+  MapPin,
+  Mail,
 } from "lucide-react"
 import { CartSidebar } from "@/components/cart/cart-sidebar"
 import { ProductPreviewModal } from "@/components/product/product-preview-modal"
 import { useCart } from "@/lib/cart-context"
 import { toast } from "@/hooks/use-toast"
+import axios from "axios"
 
 // Datos simulados para la galería 5x5 (25 imágenes) - DATOS FIJOS para evitar hidratación
 const galleryImages = [
@@ -215,6 +216,27 @@ const filterColors = [
   { name: "Celeste", value: "lightblue", color: "#87CEEB" },
 ]
 
+// 🎨 COMPONENTE DE SKELETON PROFESIONAL PARA IMÁGENES CON DEGRADADO
+// 📍 UBICACIÓN: Solo se aplica a las imágenes de productos en el grid
+const ImageSkeleton = () => (
+  <div className="aspect-square flex items-center justify-center relative group overflow-hidden bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300">
+    {/* Efecto de shimmer con degradado profesional */}
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-pulse transform -skew-x-12"></div>
+
+    {/* Degradado adicional para efecto profesional */}
+    <div className="absolute inset-0 bg-gradient-to-t from-gray-300/30 via-transparent to-gray-200/20"></div>
+
+    {/* Contenido del skeleton */}
+    <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg opacity-60 animate-pulse"></div>
+
+    {/* Overlay con transición suave */}
+    <div className="absolute inset-0 bg-gradient-to-t from-gray-200/20 to-transparent"></div>
+
+    {/* Efecto de brillo adicional */}
+    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-pulse"></div>
+  </div>
+)
+
 export default function TiendaPage() {
   const [images, setImages] = useState(galleryImages)
   const [searchTerm, setSearchTerm] = useState("")
@@ -224,7 +246,7 @@ export default function TiendaPage() {
   const [selectedHighlight, setSelectedHighlight] = useState("All Products")
   const [viewMode, setViewMode] = useState("grid")
   const [sortBy, setSortBy] = useState("default")
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingImages, setIsLoadingImages] = useState(true) // 📍 ESTADO DE LOADING SOLO PARA IMÁGENES
   const [mounted, setMounted] = useState(false)
   const { addItem } = useCart()
 
@@ -233,7 +255,8 @@ export default function TiendaPage() {
     setMounted(true)
   }, [])
 
-  // Cargar imágenes automáticamente al iniciar
+  // 🔄 CARGAR IMÁGENES CON LOADING ESPECÍFICO
+  // 📍 LÓGICA: Solo afecta el loading de las imágenes, no toda la página
   useEffect(() => {
     if (mounted) {
       loadImagesFromPHP()
@@ -242,15 +265,21 @@ export default function TiendaPage() {
 
   // Función para cargar imágenes desde PHP
   const loadImagesFromPHP = async () => {
-    setIsLoading(true);
+    setIsLoadingImages(true)
     try {
-      const response = await fetch("https://giancarlo.alwaysdata.net/imagenes.php");
-      const result = await response.json();
+      const response = await axios.get("https://giancarlo.alwaysdata.net/imagenes.php", {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      })
+
+      const result = response.data
 
       if (result.success && result.data) {
         const convertedImages = result.data.map((item: any) => {
           // Extraer solo el nombre del archivo
-          const imageName = item.image.split("/").pop();
+          const imageName = item.image.split("/").pop()
 
           return {
             id: item.id,
@@ -265,22 +294,24 @@ export default function TiendaPage() {
             discount: Math.floor(Math.random() * 20) + 5,
             rating: 4 + Math.random(),
             features: item.features || ["Producto", "De calidad", "Garantía"],
-          };
-        });
+          }
+        })
 
-        setImages(convertedImages);
-        console.log("✅ Imágenes cargadas desde PHP:", convertedImages.length);
+        setImages(convertedImages)
+        console.log("✅ Imágenes cargadas desde PHP:", convertedImages.length)
       } else {
-        console.error("❌ Error en respuesta PHP:", result.message);
+        console.error("❌ Error en respuesta PHP:", result.message)
       }
     } catch (error) {
-      console.error("❌ Error cargando desde PHP:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("❌ Error de Axios cargando desde PHP:", error.message)
+      } else {
+        console.error("❌ Error cargando desde PHP:", error)
+      }
     } finally {
-      setIsLoading(false);
+      setIsLoadingImages(false)
     }
-  };
-
-
+  }
 
   // Filtrar imágenes
   const filteredImages = images.filter((image) => {
@@ -426,11 +457,6 @@ export default function TiendaPage() {
                 <Badge className="ml-2 bg-emerald-500 text-white text-xs">SALE</Badge>
                 <ChevronDown className="h-4 w-4 ml-1" />
               </Link>
-              <Link href="/productos" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                PRODUCTOS
-                <Badge className="ml-2 bg-red-500 text-white text-xs">HOT</Badge>
-                <ChevronDown className="h-4 w-4 ml-1" />
-              </Link>
               <Link href="/pedidos" className="text-white hover:text-yellow-400 font-medium flex items-center">
                 PEDIDOS
                 <ChevronDown className="h-4 w-4 ml-1" />
@@ -483,8 +509,9 @@ export default function TiendaPage() {
                   <div className="space-y-1">
                     <button
                       onClick={() => setSelectedCategory("")}
-                      className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-50 ${selectedCategory === "" ? "text-gray-800" : "text-gray-600"
-                        }`}
+                      className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-50 ${
+                        selectedCategory === "" ? "text-gray-800" : "text-gray-600"
+                      }`}
                     >
                       Our Store ({images.length})
                     </button>
@@ -492,8 +519,9 @@ export default function TiendaPage() {
                       <button
                         key={category}
                         onClick={() => setSelectedCategory(category)}
-                        className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-50 capitalize ${selectedCategory === category ? "text-gray-800" : "text-gray-600"
-                          }`}
+                        className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-50 capitalize ${
+                          selectedCategory === category ? "text-gray-800" : "text-gray-600"
+                        }`}
                       >
                         {category} ({images.filter((img) => img.category === category).length})
                       </button>
@@ -514,8 +542,9 @@ export default function TiendaPage() {
                       <button
                         key={highlight}
                         onClick={() => setSelectedHighlight(highlight)}
-                        className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-50 ${selectedHighlight === highlight ? "text-red-500 font-medium" : "text-gray-600"
-                          }`}
+                        className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-50 ${
+                          selectedHighlight === highlight ? "text-red-500 font-medium" : "text-gray-600"
+                        }`}
                       >
                         {highlight}
                       </button>
@@ -536,8 +565,9 @@ export default function TiendaPage() {
                       <button
                         key={color.value}
                         onClick={() => setSelectedColor(selectedColor === color.value ? "" : color.value)}
-                        className={`w-6 h-6 rounded border ${selectedColor === color.value ? "border-gray-800 border-2" : "border-gray-300"
-                          }`}
+                        className={`w-6 h-6 rounded border ${
+                          selectedColor === color.value ? "border-gray-800 border-2" : "border-gray-300"
+                        }`}
                         style={{ backgroundColor: color.color }}
                         title={color.name}
                       />
@@ -582,7 +612,7 @@ export default function TiendaPage() {
                 </div>
               </div>
 
-              {/* Products Grid - Sin bordes, solo separados por líneas */}
+              {/* 📍 PRODUCTS GRID CON SKELETON SOLO EN IMÁGENES */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-px gap-y-6 bg-white">
                 {filteredImages.map((item) => (
                   <div
@@ -592,30 +622,41 @@ export default function TiendaPage() {
                     <div className="flex flex-col h-full">
                       <div className="relative mb-4">
                         {item.discount > 0 && (
-                          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded z-10">
                             -{item.discount}%
                           </div>
                         )}
                         <div className="aspect-square flex items-center justify-center relative group">
-                          <Image
-                            src={item.image || "/placeholder.svg"}
-                            alt={item.title}
-                            width={200}
-                            height={200}
-                            className="max-w-full max-h-full object-contain"
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 flex items-center justify-center">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-2">
-                              <ProductPreviewModal product={item}>
-                                <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </ProductPreviewModal>
-                              <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
-                                <Heart className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
+                          {/* 🎨 SKELETON LOADING SOLO PARA LA IMAGEN */}
+                          {isLoadingImages ? (
+                            <ImageSkeleton />
+                          ) : (
+                            <>
+                              <Image
+                                src={item.image || "/placeholder.svg"}
+                                alt={item.title}
+                                width={200}
+                                height={200}
+                                className="max-w-full max-h-full object-contain transition-opacity duration-500"
+                                onLoad={(e) => {
+                                  e.currentTarget.style.opacity = "1"
+                                }}
+                                style={{ opacity: 0 }}
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 flex items-center justify-center">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-2">
+                                  <ProductPreviewModal product={item}>
+                                    <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </ProductPreviewModal>
+                                  <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
+                                    <Heart className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex-grow">
@@ -654,24 +695,13 @@ export default function TiendaPage() {
               </div>
 
               {/* Empty State */}
-              {filteredImages.length === 0 && !isLoading && (
+              {filteredImages.length === 0 && !isLoadingImages && (
                 <div className="text-center py-12">
                   <div className="text-gray-400 mb-4">
                     <Search className="h-16 w-16 mx-auto" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No se encontraron productos</h3>
                   <p className="text-gray-600 mb-4">Intenta ajustar los filtros o términos de búsqueda</p>
-                </div>
-              )}
-
-              {/* Loading State */}
-              {isLoading && (
-                <div className="text-center py-12">
-                  <div className="animate-pulse flex flex-col items-center">
-                    <div className="rounded-full bg-gray-200 h-16 w-16 mb-4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/3"></div>
-                  </div>
                 </div>
               )}
             </div>
@@ -720,7 +750,8 @@ export default function TiendaPage() {
               </a>
               <a href="#" className="text-white hover:text-gray-300">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.281.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z" />
+                  <path d="M12 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                 </svg>
               </a>
             </div>
@@ -728,7 +759,7 @@ export default function TiendaPage() {
         </div>
       </section>
 
-      {/* Main Footer */}
+      {/* Footer */}
       <footer className="bg-gray-100 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 relative">
@@ -736,20 +767,9 @@ export default function TiendaPage() {
             <div className="pr-8">
               <div className="flex items-center mb-6">
                 <div className="w-10 h-10 bg-emerald-500 rounded-md flex items-center justify-center mr-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
+                  <div className="w-6 h-6 bg-white rounded-sm flex items-center justify-center">
+                    <div className="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+                  </div>
                 </div>
                 <span className="text-2xl font-bold text-gray-900">BRANCHY</span>
               </div>
@@ -758,9 +778,6 @@ export default function TiendaPage() {
                 centuries, but also the leap into electronictook a galley of type and scrambled it to
               </p>
             </div>
-
-            {/* Vertical divider after first column */}
-            <div className="absolute left-1/4 top-0 bottom-0 w-px bg-gray-300 hidden md:block"></div>
 
             {/* Help Column */}
             <div className="px-8">
@@ -794,9 +811,6 @@ export default function TiendaPage() {
               </ul>
             </div>
 
-            {/* Vertical divider after second column */}
-            <div className="absolute left-2/4 top-0 bottom-0 w-px bg-gray-300 hidden md:block"></div>
-
             {/* Info Column */}
             <div className="px-8">
               <h3 className="text-lg font-bold text-gray-900 mb-6">INFO</h3>
@@ -829,9 +843,6 @@ export default function TiendaPage() {
               </ul>
             </div>
 
-            {/* Vertical divider after third column */}
-            <div className="absolute left-3/4 top-0 bottom-0 w-px bg-gray-300 hidden md:block"></div>
-
             {/* Contact Info Column */}
             <div className="pl-8">
               <h3 className="text-lg font-bold text-gray-900 mb-6">CONTACT INFO</h3>
@@ -855,39 +866,6 @@ export default function TiendaPage() {
           </div>
         </div>
       </footer>
-
-      {/* Copyright Section */}
-      <div className="bg-gray-100 border-t border-gray-300 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-gray-600 text-sm mb-8 md:mb-0">
-              © 2025 Branchy - Electronics - WordPress Theme by Avanam
-            </div>
-            <div className="flex items-center space-x-6">
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png"
-                alt="Visa"
-                className="h-6"
-              />
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/American_Express_logo_%282018%29.svg/1200px-American_Express_logo_%282018%29.svg.png"
-                alt="American Express"
-                className="h-6"
-              />
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/MasterCard_Logo.svg/2560px-MasterCard_Logo.svg.png"
-                alt="MasterCard"
-                className="h-6"
-              />
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/PayPal.svg/1200px-PayPal.svg.png"
-                alt="PayPal"
-                className="h-6"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

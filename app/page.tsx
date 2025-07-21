@@ -262,11 +262,6 @@ export default function HomePage() {
                 <Badge className="ml-2 bg-emerald-500 text-white text-xs">SALE</Badge>
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
               </Link>
-              <Link href="/productos" className="text-white hover:text-yellow-400 font-medium flex items-center">
-                PRODUCTOS
-                <Badge className="ml-2 bg-red-500 text-white text-xs">HOT</Badge>
-                <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
-              </Link>
               <Link href="/pedidos" className="text-white hover:text-yellow-400 font-medium flex items-center">
                 PEDIDOS
                 <ChevronLeft className="h-4 w-4 ml-1 rotate-90" />
